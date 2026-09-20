@@ -118,6 +118,17 @@ export default function Board() {
     setTitle("");
     setContent("");
     setWriting(false);
+
+    fetch("/api/ai-comment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ postId: data.id }),
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body) => {
+        if (body?.comment) setComments((prev) => [...prev, body.comment]);
+      })
+      .catch(() => {});
   }
 
   return (
