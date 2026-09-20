@@ -145,3 +145,9 @@ body {
   font-size: 0.85rem;
   opacity: 0.7;
 }
+
+.notice {
+  text-align: center;
+  font-weight: bold;
+  margin: 24px 0;
+}

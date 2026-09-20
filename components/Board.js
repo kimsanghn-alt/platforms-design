@@ -1,56 +1,50 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "../lib/supabase";
 
 const CATEGORY = "레이아웃";
 
-// 데이터베이스 없이 화면에 보여주기 위한 예시 글입니다. (새로고침하면 처음 상태로 돌아옵니다)
-const initialPosts = [
-  {
-    id: 3,
-    category: CATEGORY,
-    title: "전단지 3단 접지 레이아웃 정리",
-    content: "여백을 넉넉히 주고 제목 위치를 왼쪽 위로 고정하니 훨씬 읽기 편해졌어요.",
-    author: "익명",
-    date: "2026-09-18",
-  },
-  {
-    id: 2,
-    category: CATEGORY,
-    title: "포스터 그리드 배치 팁",
-    content: "12칸 그리드 위에 이미지와 문구를 맞추면 정돈된 느낌이 납니다.",
-    author: "익명",
-    date: "2026-09-16",
-  },
-  {
-    id: 1,
-    category: CATEGORY,
-    title: "레트로 명함 레이아웃 공유해요",
-    content: "굵은 테두리와 따뜻한 색 조합으로 옛날 인쇄물 느낌을 냈어요.",
-    author: "익명",
-    date: "2026-09-14",
-  },
-];
+function toPost(row) {
+  return { ...row, date: row.created_at.slice(0, 10) };
+}
 
 export default function Board() {
-  const [posts, setPosts] = useState(initialPosts);
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [writing, setWriting] = useState(false);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
 
-  function handleSubmit(e) {
+  useEffect(() => {
+    supabase
+      .from("posts")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .then(({ data, error }) => {
+        if (error) setError("글을 불러오지 못했어요.");
+        else setPosts(data.map(toPost));
+        setLoading(false);
+      });
+  }, []);
+
+  async function handleSubmit(e) {
     e.preventDefault();
     if (!title.trim() || !content.trim()) return;
 
-    const newPost = {
-      id: Date.now(),
-      category: CATEGORY,
-      title: title.trim(),
-      content: content.trim(),
-      author: "익명",
-      date: new Date().toISOString().slice(0, 10),
-    };
-    setPosts([newPost, ...posts]);
+    const { data, error } = await supabase
+      .from("posts")
+      .insert({ category: CATEGORY, title: title.trim(), content: content.trim(), author: "익명" })
+      .select()
+      .single();
+
+    if (error) {
+      setError("글을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.");
+      return;
+    }
+    setError("");
+    setPosts([toPost(data), ...posts]);
     setTitle("");
     setContent("");
     setWriting(false);
@@ -97,6 +91,7 @@ export default function Board() {
               onChange={(e) => setContent(e.target.value)}
               placeholder="내용을 입력하세요"
               rows={5}
+              maxLength={2000}
               required
             />
           </label>
@@ -104,6 +99,11 @@ export default function Board() {
             등록하기
           </button>
         </form>
+      )}
+
+      {error && <p className="notice">{error}</p>}
+      {!loading && !error && posts.length === 0 && (
+        <p className="notice">아직 글이 없어요. 첫 글을 남겨 보세요!</p>
       )}
 
       <ul className="list">
@@ -119,9 +119,6 @@ export default function Board() {
         ))}
       </ul>
 
-      <footer className="footer">
-        ※ 지금은 저장 기능이 없어 새로고침하면 새 글이 사라집니다.
-      </footer>
     </main>
   );
 }
