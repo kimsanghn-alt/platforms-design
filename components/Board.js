@@ -9,8 +9,69 @@ function toPost(row) {
   return { ...row, date: row.created_at.slice(0, 10) };
 }
 
+function Comments({ postId, comments, onAdd }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const [error, setError] = useState("");
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!text.trim()) return;
+
+    const { data, error } = await supabase
+      .from("comments")
+      .insert({ post_id: postId, content: text.trim(), author: "익명" })
+      .select()
+      .single();
+
+    if (error) {
+      setError("댓글을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.");
+      return;
+    }
+    setError("");
+    onAdd(data);
+    setText("");
+  }
+
+  return (
+    <div className="comments">
+      <button className="link" onClick={() => setOpen(!open)}>
+        💬 댓글 {comments.length}
+      </button>
+      {open && (
+        <>
+          <ul className="comment-list">
+            {comments.map((c) => (
+              <li key={c.id}>
+                <p>{c.content}</p>
+                <div className="meta">
+                  {c.author} · {c.created_at.slice(0, 10)}
+                </div>
+              </li>
+            ))}
+          </ul>
+          <form className="comment-form" onSubmit={handleSubmit}>
+            <input
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="댓글을 입력하세요 (익명)"
+              maxLength={300}
+              required
+            />
+            <button className="btn" type="submit">
+              등록
+            </button>
+          </form>
+          {error && <p className="notice">{error}</p>}
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function Board() {
   const [posts, setPosts] = useState([]);
+  const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [writing, setWriting] = useState(false);
@@ -26,6 +87,15 @@ export default function Board() {
         if (error) setError("글을 불러오지 못했어요.");
         else setPosts(data.map(toPost));
         setLoading(false);
+      });
+
+    supabase
+      .from("comments")
+      .select("*")
+      .order("created_at", { ascending: true })
+      .then(({ data, error }) => {
+        if (error) setError("댓글을 불러오지 못했어요.");
+        else setComments(data);
       });
   }, []);
 
@@ -115,10 +185,14 @@ export default function Board() {
             <div className="meta">
               {post.author} · {post.date}
             </div>
+            <Comments
+              postId={post.id}
+              comments={comments.filter((c) => c.post_id === post.id)}
+              onAdd={(c) => setComments([...comments, c])}
+            />
           </li>
         ))}
       </ul>
-
     </main>
   );
 }
